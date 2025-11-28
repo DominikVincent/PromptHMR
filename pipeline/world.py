@@ -64,8 +64,10 @@ def world_hps_estimation(cfg, results, smplx):
         Rroll = rotation_about_y(spec_calib['roll'])[None, :3, :3]
         cam_wc[:, :3, :3] = Rpitch @ Rroll @ cam_wc[:, :3, :3]
         cam_wc[:, :3, 3] = (Rpitch @ Rroll @ cam_wc[:, :3, 3][..., None]).squeeze()
-    elif cfg.use_floor_rectify:
-        #TODO:
+    # elif cfg.use_floor_rectify:
+    #     #TODO:
+    #     pass
+    else:
         pass
     Rwc = cam_wc[:, :3, :3]
     Twc = cam_wc[:, :3, 3]
@@ -129,10 +131,22 @@ def world_hps_estimation(cfg, results, smplx):
         }
 
     # Transform: flip y-z 
-    R = torch.tensor([[-1, 0, 0], [0, 1, 0], [0, 0, -1]]).float() @ torch.tensor([[-1, 0, 0], [0, -1, 0], [0, 0, 1]]).float()
-    all_pred_vert_w = torch.cat([v['smplx_world']['verts'] for v in results['people'].values()])
-    pred_vert_gr = torch.einsum('ij,bnj->bni', R, all_pred_vert_w).detach()
-    offset = fit_floor_height(pred_vert_gr, 'ransac', 'y')
+
+    if results.get('has_gt_extrinsics', False):
+        print("Using GT Extrinsics: Skipping coordinate flip and floor fitting.")
+        R = torch.eye(3).float()
+        offset = torch.zeros(3).float()
+        all_pred_vert_w = torch.cat([v['smplx_world']['verts'] for v in results['people'].values()])
+        pred_vert_gr = all_pred_vert_w
+    else:
+        R = torch.tensor([[-1, 0, 0], [0, 1, 0], [0, 0, -1]]).float() @ torch.tensor([[-1, 0, 0], [0, -1, 0], [0, 0, 1]]).float()
+        all_pred_vert_w = torch.cat([v['smplx_world']['verts'] for v in results['people'].values()])
+        pred_vert_gr = torch.einsum('ij,bnj->bni', R, all_pred_vert_w).detach()
+        offset = fit_floor_height(pred_vert_gr, cfg.floor_fitting, 'y')
+    # R = torch.tensor([[-1, 0, 0], [0, 1, 0], [0, 0, -1]]).float() @ torch.tensor([[-1, 0, 0], [0, -1, 0], [0, 0, 1]]).float()
+    # all_pred_vert_w = torch.cat([v['smplx_world']['verts'] for v in results['people'].values()])
+    # pred_vert_gr = torch.einsum('ij,bnj->bni', R, all_pred_vert_w).detach()
+    # offset = fit_floor_height(pred_vert_gr, 'ransac', 'y')
 
     # if cfg.floor_fitting == 'lowest':
     #     offset = pred_vert_gr[..., 1].min()

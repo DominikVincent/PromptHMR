@@ -1,3 +1,4 @@
+from datetime import datetime  # Change 'date' to 'datetime'
 import os
 import sys
 import cv2
@@ -17,18 +18,20 @@ from pipeline import Pipeline
 
 def main(input_video='data/examples/boxing_short.mp4', 
          static_camera=False,
-         run_viser=True,
+         run_viser=False,
          viser_total=1500, 
-         viser_subsample=1):
+         viser_subsample=1,
+         max_frames: int = 200):
     smplx = SMPLX_Layer(SMPLX_PATH).cuda()
 
-    output_folder = 'results/' + os.path.basename(input_video).split('.')[0]
+    output_folder = 'results/' + os.path.basename(input_video).split('.')[0] + datetime.now().strftime('_%Y%m%d_%H%M%S')
     if os.path.exists(os.path.join(output_folder, "results.pkl")):
         return 
     pipeline = Pipeline(static_cam=static_camera)
     results = pipeline.__call__(input_video, 
                                 output_folder, 
-                                save_only_essential=True)
+                                save_only_essential=True,
+                                max_frame=max_frames)
     # Viser
     if run_viser:
         # Downsample for viser visualization

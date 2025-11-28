@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import shutil
 import cv2
 import joblib
@@ -165,10 +166,33 @@ class Pipeline:
                 opt_intr = False
         
         if static_cam:
-            cam_R = torch.eye(3)[None].repeat_interleave(len(masks), 0)
-            cam_T = torch.zeros((len(masks), 3))
-            print("Warning: probably there is not much camera motion in the video!!")
-            print("Setting camera motion to zero")
+            has_gt_extrinsics = False
+            has_calib = not self.cfg.calib is None
+            has_extrinsics = Path(self.cfg.calib[:-4] + '_extrinsics.txt').exists() and has_calib
+            if not has_extrinsics:
+                cam_R = torch.eye(3)[None].repeat_interleave(len(masks), 0)
+                cam_T = torch.zeros((len(masks), 3))
+                print("Warning: probably there is not much camera motion in the video!!")
+                print("Setting camera motion to zero")
+            
+            else:
+                # read extrinsics
+                extrinsics = np.loadtxt(self.cfg.calib[:-4] + '_extrinsics.txt')
+                # Surrey format: p_cam = R * p_world + t
+                R_cw = torch.tensor(extrinsics[:3,:], dtype=torch.float)
+                t_cw = torch.tensor(extrinsics[3,:], dtype=torch.float)
+
+                # convert from surrey to our format
+                # Convert to Camera-to-World (R_wc, T_wc)
+                # p_world = R^T * p_cam - R^T * t
+                R_wc = R_cw.T
+                T_wc = -torch.matmul(R_wc, t_cw)
+
+                cam_R = R_wc[None].repeat_interleave(len(masks), 0)
+                cam_T = T_wc[None].repeat_interleave(len(masks), 0)
+
+                has_gt_extrinsics = True
+
         else:
             try:
                 cam_R, cam_T, cam_int = run_metric_slam(
@@ -201,6 +225,7 @@ class Pipeline:
         print("cam focal length: ", cam_int[0])
         self.results['camera'] = camera
         self.results['has_slam'] = True
+        self.results['has_gt_extrinsics'] = has_gt_extrinsics if static_cam else False
         return
 
 

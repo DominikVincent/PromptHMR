@@ -9,7 +9,7 @@ max_height: 896
 calib_method: ba
 hand_pose: false
 smooth_cam: false
-use_spec_calib: false
+use_spec_calib: true
 
 det_thresh: 0.1
 det_score_thresh: 0.1
@@ -22,7 +22,7 @@ load_images_to_cpu: true
 run_post_opt: true
 run_post_opt_cam: true
 floor_fitting: ransac
-fps: 60
+fps: 30
 postopt_lr: 1e-2
-num_max_people: 1
+num_max_people: 100
 max_fps: 60

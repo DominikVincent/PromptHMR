@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # conda remove -n phmr --all -y
 # conda create -n phmr python=3.11.9 -y
 # conda activate phmr
