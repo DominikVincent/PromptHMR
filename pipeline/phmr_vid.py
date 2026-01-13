@@ -81,7 +81,7 @@ class PromptHMR_Video():
             tracks[k]['prhmr_img_feats'] = torch.stack(tracks[k]['prhmr_img_feats']).float()
 
         # Video model
-        print(f"Running PRHMR-Vid for tracks")
+        print(f"Running PRHMR-Vid for {len(tracks)} tracks")
         for idx, k in enumerate(list(tracks.keys())):
             seqlen = tracks[k]['prhmr_img_feats'].shape[0]
             R_w2c = torch.eye(3).repeat(seqlen, 1, 1)

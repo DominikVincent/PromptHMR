@@ -135,6 +135,9 @@ class Pipeline:
                 cam_int = est_calib(self.images)
             else:
                 cam_int = np.loadtxt(self.cfg.calib)
+                # Apply the scale factor we calculated in __call__
+                if hasattr(self, 'intrinsics_scale'):
+                    cam_int = cam_int * self.intrinsics_scale
                 opt_intr = False
 
         else:
@@ -163,6 +166,9 @@ class Pipeline:
                     cam_int = est_calib(self.images)
             else:
                 cam_int = np.loadtxt(self.cfg.calib)
+                # Apply the scale factor we calculated in __call__
+                if hasattr(self, 'intrinsics_scale'):
+                    cam_int = cam_int * self.intrinsics_scale
                 opt_intr = False
         
         if static_cam:
@@ -315,6 +321,26 @@ class Pipeline:
         images, seq_folder = self.load_frames(input_video, 
                                               output_folder)
 
+        # --- FIX: Calculate scale factor for intrinsics ---
+        # The pipeline resizes images to max_height=896, but calibration files 
+        # are usually for the original resolution (e.g. 1080p).
+        # We must scale the intrinsics to match the resized images.
+        self.intrinsics_scale = np.array([1.0, 1.0, 1.0, 1.0])
+        # if os.path.isfile(input_video):
+        #      cap = cv2.VideoCapture(input_video)
+        #      if cap.isOpened():
+        #          orig_w = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+        #          orig_h = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+        #          if orig_w > 0 and orig_h > 0:
+        #              curr_h, curr_w = images.shape[1:3]
+        #              scale_w = curr_w / orig_w
+        #              scale_h = curr_h / orig_h
+        #              self.intrinsics_scale = np.array([scale_w, scale_h, scale_w, scale_h])
+        #              print(f"Detected resize: {int(orig_w)}x{int(orig_h)} -> {curr_w}x{curr_h}")
+        #              print(f"Scaling intrinsics by: {self.intrinsics_scale}")
+        #          cap.release()
+        # --------------------------------------------------
+
         self.images = images[:max_frame]
         self.seq_folder = seq_folder
         self.cfg.seq_folder = seq_folder
@@ -383,6 +409,13 @@ class Pipeline:
         if self.cfg.run_post_opt and not self.results['has_post_opt']:
             print("Running post optimization...")
             self.post_optimization()
+
+        # # Calculate and save confidence scores before cleanup
+        # for tid, track in self.results['people'].items():
+        #     if 'keypoints_2d' in track:
+        #         # keypoints_2d is (Frames, 25, 3) -> [x, y, confidence]
+        #         # We calculate the average confidence of the keypoints for each frame
+        #         track['frame_confidence'] = track['keypoints_2d'][:, :, 2].mean(axis=1)
 
         if save_only_essential:
             _ = self.results.pop('masks', None)
